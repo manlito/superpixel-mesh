@@ -1,0 +1,15 @@
+get_filename_component(SuperpixelMesh_CMAKE_DIR "${CMAKE_CURRENT_LIST_FILE}" PATH)
+include(CMakeFindDependencyMacro)
+
+list(APPEND CMAKE_MODULE_PATH ${SuperpixelMesh_CMAKE_DIR})
+
+# Ceres solver
+find_dependency(Ceres REQUIRED)
+
+list(REMOVE_AT CMAKE_MODULE_PATH -1)
+
+if (NOT TARGET SuperpixelMesh::SuperpixelMesh)
+    include("${SuperpixelMesh_CMAKE_DIR}/SuperpixelMeshTargets.cmake")
+endif ()
+
+set(SuperpixelMesh_LIBRARIES SuperpixelMesh::SuperpixelMesh)

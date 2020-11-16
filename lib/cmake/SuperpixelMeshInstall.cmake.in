@@ -1,0 +1,76 @@
+### Boilerplate usage as library
+
+# Install and create cmake files
+include(GNUInstallDirs)
+set(INSTALL_CONFIGDIR ${CMAKE_INSTALL_LIBDIR}/cmake/SuperpixelMesh)
+
+install(
+    TARGETS
+        superpixel_mesh
+    EXPORT
+        SuperpixelMeshTargets
+    LIBRARY DESTINATION
+        ${CMAKE_INSTALL_LIBDIR}
+    ARCHIVE DESTINATION
+        ${CMAKE_INSTALL_LIBDIR}
+)
+
+set_target_properties(superpixel_mesh PROPERTIES EXPORT_NAME SuperpixelMesh)
+
+# Install headers
+install(
+    DIRECTORY
+        "${CMAKE_CURRENT_SOURCE_DIR}/"
+    DESTINATION
+        "${CMAKE_INSTALL_INCLUDEDIR}"
+    FILES_MATCHING
+        PATTERN "*.hpp"
+)
+
+# Create CMakeTargets file
+install(
+    EXPORT
+        SuperpixelMeshTargets
+    FILE
+        SuperpixelMeshTargets.cmake
+    NAMESPACE
+        SuperpixelMesh::
+    DESTINATION
+        ${INSTALL_CONFIGDIR}
+)
+
+# Create ConfigVersion.cmake
+include(CMakePackageConfigHelpers)
+write_basic_package_version_file(${CMAKE_CURRENT_BINARY_DIR}/SuperpixelMeshConfigVersion.cmake
+    VERSION
+        ${PROJECT_VERSION}
+    COMPATIBILITY
+        AnyNewerVersion
+)
+
+configure_package_config_file(
+    ${CMAKE_CURRENT_LIST_DIR}/SuperpixelMeshConfig.cmake.in
+    ${CMAKE_CURRENT_BINARY_DIR}/SuperpixelMeshConfig.cmake
+    INSTALL_DESTINATION ${INSTALL_CONFIGDIR}
+)
+
+# Install cmake configuration files
+install(
+    FILES
+        ${CMAKE_CURRENT_BINARY_DIR}/SuperpixelMeshConfig.cmake
+        ${CMAKE_CURRENT_BINARY_DIR}/SuperpixelMeshConfigVersion.cmake
+    DESTINATION
+        ${INSTALL_CONFIGDIR}
+)
+
+# Export
+export(
+    EXPORT
+        SuperpixelMeshTargets
+    FILE
+        ${CMAKE_CURRENT_BINARY_DIR}/SuperpixelMeshTargets.cmake
+    NAMESPACE
+        SuperpixelMesh::
+)
+
+export(PACKAGE SuperpixelMesh)
