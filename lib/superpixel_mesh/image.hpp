@@ -15,12 +15,13 @@ public:
       : width(width), height(height), image_data(image_data) {}
   int Width() const { return width; }
   int Height() const { return height; }
+  void Blur(int kernel_size = 25, double sigma = 2.0);
   ImageData const &GetImageData() const { return image_data; }
 
 protected:
   const int width{0};
   const int height{0};
-  const ImageData image_data;
+  ImageData image_data;
 };
 
 } // namespace superpixel_mesh

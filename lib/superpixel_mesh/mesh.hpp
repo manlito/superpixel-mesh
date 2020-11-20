@@ -10,7 +10,7 @@ struct Vertex {
   double y{0.0};
 };
 
-typedef uint32_t FaceIndex;
+typedef size_t FaceIndex;
 struct QuadFace {
   FaceIndex tl;
   FaceIndex tr;
@@ -22,8 +22,15 @@ struct Mesh {
   std::vector<Vertex> vertices;
   std::vector<QuadFace> faces;
 
-  Vertex const* GetVertices() const { return vertices.data(); }
-  QuadFace const* GetFaces() const { return faces.data(); }
+  size_t GetFacesCount() const { return faces.size(); }
+  size_t GetVerticesCount() const { return vertices.size(); }
+
+  Vertex GetVertexAt(FaceIndex vertex_index) const {
+    return vertices.at(vertex_index);
+  }
+  QuadFace GetFaceAt(FaceIndex face_index) const {
+    return faces.at(face_index);
+  }
 };
 
 } // namespace superpixel_mesh

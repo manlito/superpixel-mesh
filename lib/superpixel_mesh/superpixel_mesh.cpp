@@ -14,17 +14,16 @@ Mesh SuperpixelsMesh::SeedSuperpixelsMesh() const {
   Mesh mesh;
 
   auto bounded_coordinates = [this](const int x,
-                                      const int y) -> std::pair<int, int> {
+                                    const int y) -> std::pair<int, int> {
     return {std::max(0, std::min(image.Width() - 1, x)),
             std::max(0, std::min(image.Height() - 1, y))};
   };
   auto coordinate_to_encoded = [this, &bounded_coordinates](const int x,
-                                                              const int y) {
+                                                            const int y) {
     const auto [x_safe, y_safe] = bounded_coordinates(x, y);
     return y_safe * image.Width() + x_safe;
   };
-  auto encoded_to_coordinate =
-      [this](const int index) -> std::pair<int, int> {
+  auto encoded_to_coordinate = [this](const int index) -> std::pair<int, int> {
     return {index % image.Width(), index / image.Width()};
   };
 
@@ -75,12 +74,12 @@ MeshingResult SuperpixelsMesh::OptimizeSuperpixelsMesh(const Mesh &mesh) const {
   ceres::Problem problem;
 
   // Parametrized vertices
-  std::vector<double[2]> vertices(mesh.vertices.size());
+  std::vector<double> vertices(2 * mesh.vertices.size());
   for (size_t vertex_index = 0; vertex_index < mesh.vertices.size();
        vertex_index++) {
-    vertices[vertex_index][0] = mesh.vertices[vertex_index].x;
-    vertices[vertex_index][1] = mesh.vertices[vertex_index].y;
-    problem.AddParameterBlock(vertices.at(vertex_index), 2);
+    vertices[vertex_index * 2 + 0] = mesh.vertices[vertex_index].x;
+    vertices[vertex_index * 2 + 1] = mesh.vertices[vertex_index].y;
+    problem.AddParameterBlock(&vertices[vertex_index * 2], 2);
   }
 
   // Add faces
@@ -94,8 +93,8 @@ MeshingResult SuperpixelsMesh::OptimizeSuperpixelsMesh(const Mesh &mesh) const {
             new PixelDissimilarityCost<SIZE>(interpolator));
     if (cost_function) {
       residuals.push_back(problem.AddResidualBlock(
-          cost_function, nullptr, vertices.at(v1), vertices.at(v2),
-          vertices.at(v3), vertices.at(v4)));
+          cost_function, nullptr, &vertices[v1 * 2], &vertices[v2 * 2],
+          &vertices[v3 * 2], &vertices[v4 * 2]));
     } else {
       throw std::runtime_error("Unable to create cost function");
     }
@@ -106,11 +105,12 @@ MeshingResult SuperpixelsMesh::OptimizeSuperpixelsMesh(const Mesh &mesh) const {
         new ceres::AutoDiffCostFunction<AreaRegularizationCost, 4, 2, 2, 2, 2>(
             new AreaRegularizationCost(options.superpixel.target_area));
     if (cost_function) {
-      problem.AddResidualBlock(
-          cost_function,
-          new ceres::ScaledLoss(nullptr, 1e0 * NORMALIZING_FACTOR,
-                                ceres::TAKE_OWNERSHIP),
-          vertices.at(v1), vertices.at(v2), vertices.at(v3), vertices.at(v4));
+      problem.AddResidualBlock(cost_function,
+                               new ceres::ScaledLoss(nullptr,
+                                                     1e0 * NORMALIZING_FACTOR,
+                                                     ceres::TAKE_OWNERSHIP),
+                               &vertices[v1 * 2], &vertices[v2 * 2],
+                               &vertices[v3 * 2], &vertices[v4 * 2]);
     } else {
       throw std::runtime_error("Unable to create cost function");
     }
@@ -121,8 +121,21 @@ MeshingResult SuperpixelsMesh::OptimizeSuperpixelsMesh(const Mesh &mesh) const {
   solver_options.minimizer_type = ceres::TRUST_REGION;
   solver_options.sparse_linear_algebra_library_type = ceres::SUITE_SPARSE;
   solver_options.linear_solver_type = ceres::SPARSE_SCHUR;
-  solver_options.minimizer_progress_to_stdout = true;
-  solver_options.max_num_iterations = 50;
+  solver_options.logging_type = ceres::SILENT;
+  solver_options.minimizer_progress_to_stdout = false;
+  solver_options.max_num_iterations = 30;
+
+  // Choose the best optimizer
+  if (ceres::IsSparseLinearAlgebraLibraryTypeAvailable(ceres::SUITE_SPARSE)) {
+    solver_options.sparse_linear_algebra_library_type = ceres::SUITE_SPARSE;
+  } else if (ceres::IsSparseLinearAlgebraLibraryTypeAvailable(
+                 ceres::CX_SPARSE)) {
+    solver_options.sparse_linear_algebra_library_type = ceres::CX_SPARSE;
+  } else if (ceres::IsSparseLinearAlgebraLibraryTypeAvailable(
+                 ceres::EIGEN_SPARSE)) {
+    solver_options.sparse_linear_algebra_library_type = ceres::EIGEN_SPARSE;
+  }
+  solver_options.linear_solver_type = ceres::SPARSE_SCHUR;
 
   ceres::Solver::Summary summary;
   ceres::Solve(solver_options, &problem, &summary);
@@ -130,12 +143,13 @@ MeshingResult SuperpixelsMesh::OptimizeSuperpixelsMesh(const Mesh &mesh) const {
   result.report.final_cost = summary.final_cost;
   result.report.iterations = summary.iterations.size();
   result.report.total_time = summary.total_time_in_seconds;
+  std::cout << summary.FullReport() << std::endl;
 
   result.mesh = mesh;
   for (size_t vertex_index = 0; vertex_index < mesh.vertices.size();
        vertex_index++) {
-    result.mesh.vertices[vertex_index].x = vertices[vertex_index][0];
-    result.mesh.vertices[vertex_index].y = vertices[vertex_index][1];
+    result.mesh.vertices[vertex_index].x = vertices[vertex_index * 2];
+    result.mesh.vertices[vertex_index].y = vertices[vertex_index * 2 + 1];
   }
 
   return result;

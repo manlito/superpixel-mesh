@@ -31,11 +31,10 @@ int main(int argc, char *argv[]) {
   superpixel_mesh::MeshingOptions meshing_options;
   meshing_options.superpixel.target_area = 15 * 15;
 
-  cv::Mat image_gray, image_blurred;
+  cv::Mat image_gray;
   cv::cvtColor(image_color, image_gray, cv::COLOR_BGR2GRAY);
-  cv::GaussianBlur(image_gray, image_gray, cv::Size(25, 25), 2.0);
-
-  cv::imshow("Blurred", image_gray);
+  // Disabled to internal gaussian blur
+  // cv::GaussianBlur(image_gray, image_gray, cv::Size(25, 25), 2.0);
 
   superpixel_mesh::ImageData image_data;
   image_data.resize(image_gray.cols * image_gray.rows);
@@ -48,6 +47,9 @@ int main(int argc, char *argv[]) {
     }
   }
   superpixel_mesh::Image image(image_gray.cols, image_gray.rows, image_data);
+  image.Blur();
+  cv::Mat image_blurred(image.Height(), image.Width(), CV_8UC1, (void*)image.GetImageData().data());
+  cv::imshow("Blurred", image_blurred);
 
   superpixel_mesh::SuperpixelsMesh meshing(image, meshing_options);
   auto mesh = meshing.SeedSuperpixelsMesh();
