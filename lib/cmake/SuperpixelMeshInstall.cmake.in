@@ -4,9 +4,14 @@
 include(GNUInstallDirs)
 set(INSTALL_CONFIGDIR ${CMAKE_INSTALL_LIBDIR}/cmake/SuperpixelMesh)
 
+set(INSTALL_TARGETS superpixel_mesh)
+if(EXPORT_CERES)
+    set(INSTALL_TARGETS ceres ${INSTALL_TARGETS})
+endif()
+
 install(
     TARGETS
-        superpixel_mesh
+        ${INSTALL_TARGETS}
     EXPORT
         SuperpixelMeshTargets
     LIBRARY DESTINATION

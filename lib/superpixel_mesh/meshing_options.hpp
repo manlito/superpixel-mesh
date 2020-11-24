@@ -1,18 +1,21 @@
 #pragma once
 #include <functional>
+#include <string>
 #include <superpixel_mesh/report.hpp>
 
 namespace superpixel_mesh {
 
 struct MeshingOptions {
 
-  struct SuperPixel {
-    double target_area{625};
-  } superpixel;
+  // Each individual rectangle desired area
+  double target_area{625};
 
-  struct Optimization {
-    int max_iterations{-1};
-  } optimization;
+  // Max iterations to use during optimization
+  int max_iterations{30};
+
+  // Regularization weight. The higher, the more an square of target area
+  double regularization{5.0};
+
 };
 
 } // namespace superpixel_mesh

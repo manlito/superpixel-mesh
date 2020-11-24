@@ -7,27 +7,31 @@ target_include_directories(superpixel_mesh
 )
 
 # Ceres solver
-if (NOT TARGET Ceres::ceres)
+if(NOT TARGET Ceres::ceres)
+    message(STATUS "PRIVATE linking")
     find_package(Ceres REQUIRED)
-else ()
+else()
+    message(STATUS "Ceres::ceres target already present")
     set(EXPORT_CERES ON)
-endif ()
-
+endif()
 target_link_libraries(superpixel_mesh
     PUBLIC
         Ceres::ceres
 )
+
 
 target_sources(superpixel_mesh
     PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/superpixel_mesh/mesh.hpp>
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/superpixel_mesh/image.hpp>
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/superpixel_mesh/meshing_options.hpp>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/superpixel_mesh/meshing_iteration_callback.hpp>
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/superpixel_mesh/report.hpp>
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/superpixel_mesh/meshing_cost.hpp>
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/superpixel_mesh/superpixel_mesh.hpp>
     PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/superpixel_mesh/image.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/superpixel_mesh/meshing_iteration_callback.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/superpixel_mesh/superpixel_mesh.cpp
     )
 

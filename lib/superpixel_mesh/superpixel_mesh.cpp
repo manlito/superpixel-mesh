@@ -1,3 +1,4 @@
+#define MAX_LOG_LEVEL 0
 #include <ceres/autodiff_cost_function.h>
 #include <ceres/cubic_interpolation.h>
 #include <ceres/problem.h>
@@ -10,8 +11,15 @@
 
 namespace superpixel_mesh {
 
-Mesh SuperpixelsMesh::SeedSuperpixelsMesh() const {
-  Mesh mesh;
+void SuperpixelsMesh::SetIterationCallback(
+    MeshingIterationCallback &iteration_callback) {
+  this->iteration_callback = &iteration_callback;
+}
+
+void SuperpixelsMesh::SeedSuperpixelsMesh() {
+
+  mesh.vertices.clear();
+  mesh.faces.clear();
 
   auto bounded_coordinates = [this](const int x,
                                     const int y) -> std::pair<int, int> {
@@ -28,7 +36,7 @@ Mesh SuperpixelsMesh::SeedSuperpixelsMesh() const {
   };
 
   std::vector<std::tuple<int, int, int, int>> faces;
-  const int target_size = std::round(std::sqrt(options.superpixel.target_area));
+  const int target_size = std::round(std::sqrt(options.target_area));
   for (int row = 0; row < image.Height() - target_size; row += target_size) {
     for (int col = 0; col < image.Width() - target_size; col += target_size) {
       faces.push_back(
@@ -61,12 +69,50 @@ Mesh SuperpixelsMesh::SeedSuperpixelsMesh() const {
     mesh.vertices[vertex_index] =
         Vertex{(double)coordinates.first, (double)coordinates.second};
   }
-
-  return mesh;
 }
 
-MeshingResult SuperpixelsMesh::OptimizeSuperpixelsMesh(const Mesh &mesh) const {
-  MeshingResult result;
+Mesh SuperpixelsMesh::GetMesh() const { return mesh; }
+
+void SuperpixelsMesh::SetMesh(const Mesh &mesh) { this->mesh = mesh; }
+
+class ProgressCallback : public ceres::IterationCallback {
+public:
+  explicit ProgressCallback(
+      const Mesh &mesh, const std::vector<double> &vertices,
+      MeshingIterationCallback *meshing_iteration_callback)
+      : mesh(mesh), vertices(vertices),
+        meshing_iteration_callback(meshing_iteration_callback) {}
+  ~ProgressCallback() {}
+
+  ceres::CallbackReturnType operator()(const ceres::IterationSummary &summary) {
+    if (meshing_iteration_callback &&
+        meshing_iteration_callback->HasCallback()) {
+      MeshingIterationProgress progress;
+      progress.mesh = mesh;
+      for (size_t vertex_index = 0; vertex_index < mesh.vertices.size();
+           vertex_index++) {
+        if (vertex_index == 1000) {
+          std::cout << vertices[vertex_index * 2] << ", "
+                    << vertices[vertex_index * 2 + 1] << "\n";
+        }
+        progress.mesh.vertices[vertex_index].x = vertices[vertex_index * 2];
+        progress.mesh.vertices[vertex_index].y = vertices[vertex_index * 2 + 1];
+      }
+      progress.iteration = summary.iteration;
+      progress.cost = summary.cost;
+      (*meshing_iteration_callback)(progress);
+    }
+    return ceres::SOLVER_CONTINUE;
+  }
+
+private:
+  const Mesh &mesh;
+  const std::vector<double> &vertices;
+  MeshingIterationCallback *meshing_iteration_callback;
+};
+
+MeshingReport SuperpixelsMesh::OptimizeSuperpixelsMesh() {
+  MeshingReport result;
 
   Grid grid(image.GetImageData().data(), 0, image.Height(), 0, image.Width());
   Interpolator interpolator(grid);
@@ -74,6 +120,7 @@ MeshingResult SuperpixelsMesh::OptimizeSuperpixelsMesh(const Mesh &mesh) const {
   ceres::Problem problem;
 
   // Parametrized vertices
+  std::cout << "Adding " << mesh.vertices.size() << " vertices" << std::endl;
   std::vector<double> vertices(2 * mesh.vertices.size());
   for (size_t vertex_index = 0; vertex_index < mesh.vertices.size();
        vertex_index++) {
@@ -85,45 +132,58 @@ MeshingResult SuperpixelsMesh::OptimizeSuperpixelsMesh(const Mesh &mesh) const {
   // Add faces
   constexpr int SIZE = 5;
   constexpr double NORMALIZING_FACTOR = 1.0 / (double)(SIZE * SIZE);
-  std::vector<ceres::ResidualBlockId> residuals;
+  std::vector<ceres::ResidualBlockId> residuals_dissimilarity;
+  std::cout << "Adding " << mesh.faces.size() << " faces" << std::endl;
   for (const auto &[v1, v2, v3, v4] : mesh.faces) {
     auto *cost_function =
         new ceres::AutoDiffCostFunction<PixelDissimilarityCost<SIZE>,
                                         SIZE * SIZE, 2, 2, 2, 2>(
             new PixelDissimilarityCost<SIZE>(interpolator));
     if (cost_function) {
-      residuals.push_back(problem.AddResidualBlock(
+      residuals_dissimilarity.push_back(problem.AddResidualBlock(
           cost_function, nullptr, &vertices[v1 * 2], &vertices[v2 * 2],
           &vertices[v3 * 2], &vertices[v4 * 2]));
     } else {
+      std::cout << "Unable to create cost function " << std::endl;
       throw std::runtime_error("Unable to create cost function");
     }
   }
+  std::cout << "Pixel dissimilarity sesiduals added: "
+            << residuals_dissimilarity.size() << std::endl;
 
+  std::vector<ceres::ResidualBlockId> residuals_regularization;
   for (const auto &[v1, v2, v3, v4] : mesh.faces) {
     auto *cost_function =
         new ceres::AutoDiffCostFunction<AreaRegularizationCost, 4, 2, 2, 2, 2>(
-            new AreaRegularizationCost(options.superpixel.target_area));
+            new AreaRegularizationCost(options.target_area));
     if (cost_function) {
-      problem.AddResidualBlock(cost_function,
-                               new ceres::ScaledLoss(nullptr,
-                                                     1e0 * NORMALIZING_FACTOR,
-                                                     ceres::TAKE_OWNERSHIP),
-                               &vertices[v1 * 2], &vertices[v2 * 2],
-                               &vertices[v3 * 2], &vertices[v4 * 2]);
+      residuals_regularization.push_back(problem.AddResidualBlock(
+          cost_function,
+          new ceres::ScaledLoss(nullptr,
+                                options.regularization * NORMALIZING_FACTOR,
+                                ceres::TAKE_OWNERSHIP),
+          &vertices[v1 * 2], &vertices[v2 * 2], &vertices[v3 * 2],
+          &vertices[v4 * 2]));
     } else {
       throw std::runtime_error("Unable to create cost function");
     }
   }
+  std::cout << "Regularization residuals added: "
+            << residuals_regularization.size() << std::endl;
 
   // Solver time
   ceres::Solver::Options solver_options;
+  // If set, we can send updates on every iteration to caller
+  ProgressCallback progress_callback(mesh, vertices, iteration_callback);
+  if (iteration_callback && iteration_callback->HasCallback()) {
+    solver_options.update_state_every_iteration = true;
+    solver_options.callbacks.push_back(&progress_callback);
+  }
+
   solver_options.minimizer_type = ceres::TRUST_REGION;
-  solver_options.sparse_linear_algebra_library_type = ceres::SUITE_SPARSE;
-  solver_options.linear_solver_type = ceres::SPARSE_SCHUR;
-  solver_options.logging_type = ceres::SILENT;
-  solver_options.minimizer_progress_to_stdout = false;
-  solver_options.max_num_iterations = 30;
+  solver_options.logging_type = ceres::PER_MINIMIZER_ITERATION;
+  solver_options.minimizer_progress_to_stdout = true;
+  solver_options.max_num_iterations = options.max_iterations;
 
   // Choose the best optimizer
   if (ceres::IsSparseLinearAlgebraLibraryTypeAvailable(ceres::SUITE_SPARSE)) {
@@ -139,17 +199,16 @@ MeshingResult SuperpixelsMesh::OptimizeSuperpixelsMesh(const Mesh &mesh) const {
 
   ceres::Solver::Summary summary;
   ceres::Solve(solver_options, &problem, &summary);
-  result.report.initial_cost = summary.initial_cost;
-  result.report.final_cost = summary.final_cost;
-  result.report.iterations = summary.iterations.size();
-  result.report.total_time = summary.total_time_in_seconds;
+  result.initial_cost = summary.initial_cost;
+  result.final_cost = summary.final_cost;
+  result.iterations = summary.iterations.size();
+  result.total_time = summary.total_time_in_seconds;
   std::cout << summary.FullReport() << std::endl;
 
-  result.mesh = mesh;
   for (size_t vertex_index = 0; vertex_index < mesh.vertices.size();
        vertex_index++) {
-    result.mesh.vertices[vertex_index].x = vertices[vertex_index * 2];
-    result.mesh.vertices[vertex_index].y = vertices[vertex_index * 2 + 1];
+    mesh.vertices[vertex_index].x = vertices[vertex_index * 2];
+    mesh.vertices[vertex_index].y = vertices[vertex_index * 2 + 1];
   }
 
   return result;

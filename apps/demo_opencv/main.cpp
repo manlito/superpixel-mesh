@@ -29,12 +29,13 @@ int main(int argc, char *argv[]) {
   }
 
   superpixel_mesh::MeshingOptions meshing_options;
-  meshing_options.superpixel.target_area = 15 * 15;
+  meshing_options.target_area = 15 * 15;
 
   cv::Mat image_gray;
   cv::cvtColor(image_color, image_gray, cv::COLOR_BGR2GRAY);
   // Disabled to internal gaussian blur
-  // cv::GaussianBlur(image_gray, image_gray, cv::Size(25, 25), 2.0);
+  cv::GaussianBlur(image_gray, image_gray, cv::Size(25, 25), 2.0);
+  cv::GaussianBlur(image_gray, image_gray, cv::Size(25, 25), 2.0);
 
   superpixel_mesh::ImageData image_data;
   image_data.resize(image_gray.cols * image_gray.rows);
@@ -47,18 +48,19 @@ int main(int argc, char *argv[]) {
     }
   }
   superpixel_mesh::Image image(image_gray.cols, image_gray.rows, image_data);
-  image.Blur();
+//  image.Blur();
   cv::Mat image_blurred(image.Height(), image.Width(), CV_8UC1, (void*)image.GetImageData().data());
   cv::imshow("Blurred", image_blurred);
 
   superpixel_mesh::SuperpixelsMesh meshing(image, meshing_options);
-  auto mesh = meshing.SeedSuperpixelsMesh();
+  meshing.SeedSuperpixelsMesh();
+  auto mesh = meshing.GetMesh();
   cv::Mat initial_mesh = draw_mesh(image_color, mesh);
   cv::imshow("InitialMesh", initial_mesh);
   cv::waitKey(0);
 
-  auto meshing_result = meshing.OptimizeSuperpixelsMesh(mesh);
-  cv::Mat optimized_mesh = draw_mesh(image_color, meshing_result.mesh);
+  meshing.OptimizeSuperpixelsMesh();
+  cv::Mat optimized_mesh = draw_mesh(image_color, meshing.GetMesh());
   cv::imshow("OptimizedMesh", optimized_mesh);
   cv::waitKey();
 
