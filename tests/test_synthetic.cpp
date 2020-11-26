@@ -43,7 +43,7 @@ TEST(Synthetic, Grid4x4) {
    *  ---------
    *
    * Where A, B, C and D are subgrids of subgrid_size*subgrid_size.
-   * Each pixel fo A will be 20. And 40, 60 and 80 to be
+   * Each pixel fo A will be 0. And 33, 66 and 99 to be
    * used in B, C and D respectively
    *
    */
