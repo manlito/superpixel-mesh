@@ -48,7 +48,7 @@ int main(int argc, char *argv[]) {
     }
   }
   superpixel_mesh::Image image(image_gray.cols, image_gray.rows, image_data);
-//  image.Blur();
+  image.Blur();
   cv::Mat image_blurred(image.Height(), image.Width(), CV_8UC1, (void*)image.GetImageData().data());
   cv::imshow("Blurred", image_blurred);
 

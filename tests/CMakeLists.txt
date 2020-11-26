@@ -10,7 +10,7 @@ set(LIB_DEFINITIONS
 )
 
 # Synthetic tests
-add_executable(test_synthetic test_io.cpp)
+add_executable(test_synthetic test_synthetic.cpp)
 target_link_libraries(test_synthetic PRIVATE ${LIB_LINK_LIBRARIES})
 target_compile_definitions(test_synthetic PRIVATE ${LIB_DEFINITIONS})
 target_compile_features(test_synthetic PRIVATE cxx_std_17)
