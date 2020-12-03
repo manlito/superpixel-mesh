@@ -29,7 +29,8 @@ int main(int argc, char *argv[]) {
   }
 
   superpixel_mesh::MeshingOptions meshing_options;
-  meshing_options.target_area = 15 * 15;
+  meshing_options.target_area = 25 * 25;
+  meshing_options.regularization = 5.0;
 
   cv::Mat image_gray;
   cv::cvtColor(image_color, image_gray, cv::COLOR_BGR2GRAY);
@@ -57,6 +58,7 @@ int main(int argc, char *argv[]) {
   auto mesh = meshing.GetMesh();
   cv::Mat initial_mesh = draw_mesh(image_color, mesh);
   cv::imshow("InitialMesh", initial_mesh);
+
   cv::waitKey(0);
 
   meshing.OptimizeSuperpixelsMesh();

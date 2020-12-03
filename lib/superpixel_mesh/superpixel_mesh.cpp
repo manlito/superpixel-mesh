@@ -91,10 +91,6 @@ public:
       progress.mesh = mesh;
       for (size_t vertex_index = 0; vertex_index < mesh.vertices.size();
            vertex_index++) {
-        if (vertex_index == 1000) {
-          std::cout << vertices[vertex_index * 2] << ", "
-                    << vertices[vertex_index * 2 + 1] << "\n";
-        }
         progress.mesh.vertices[vertex_index].x = vertices[vertex_index * 2];
         progress.mesh.vertices[vertex_index].y = vertices[vertex_index * 2 + 1];
       }
@@ -148,7 +144,7 @@ MeshingReport SuperpixelsMesh::OptimizeSuperpixelsMesh() {
       throw std::runtime_error("Unable to create cost function");
     }
   }
-  std::cout << "Pixel dissimilarity sesiduals added: "
+  std::cout << "Pixel dissimilarity residuals added: "
             << residuals_dissimilarity.size() << std::endl;
 
   std::vector<ceres::ResidualBlockId> residuals_regularization;

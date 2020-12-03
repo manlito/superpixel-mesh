@@ -19,7 +19,7 @@ cv::Mat draw_mesh(const cv::Mat &image, const superpixel_mesh::Mesh &mesh) {
     // cv::Scalar color(uniform_dist(e1), uniform_dist(e1), uniform_dist(e1));
     cv::Scalar color(255, 255, 255, 0);
     // cv::fillConvexPoly(color_mask, vertices, color);
-    cv::polylines(color_mask, vertices, false, color);
+    cv::polylines(color_mask, vertices, false, color, 2, cv::LINE_AA);
   }
 
   cv::Mat output = color_mask;
