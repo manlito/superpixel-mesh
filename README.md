@@ -2,7 +2,10 @@
 
 A tiny library to generate a mesh of superpixels from some image
 
-![superpixel mesh pipeline](superpixel-mesh-pipeline.png)
+<p align="center">
+  <img src="superpixel-mesh-pipeline.png">
+</p>
+
 
 This repo can be tested in your browser. See [here](https://manlio.mx/projects/superpixel-mesh), where additionally I have an explanation of what this thing can do.
 
